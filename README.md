@@ -89,16 +89,15 @@ cp .env.example .env
 | `AUTHELIA_JWT_SECRET` | Secreto JWT — se genera automáticamente si está vacío | — |
 | `AUTHELIA_SESSION_SECRET` | Secreto de sesión — se genera automáticamente | — |
 | `AUTHELIA_STORAGE_ENCRYPTION_KEY` | Clave de cifrado de BD — se genera automáticamente | — |
-| `AUTHELIA_TOTP_ISSUER` | Se escribe desde `config.yml`, no editar | — |
-| `AUTHELIA_DEFAULT_REDIRECTION_URL` | Se escribe desde `config.yml`, no editar | — |
+| `AUTHELIA_TOTP_ISSUER` | Lo sobreescribe el script desde `config.yml` | — |
+| `AUTHELIA_DEFAULT_REDIRECTION_URL` | Lo sobreescribe el script desde `config.yml` | — |
 
-> `DOMAIN` debe coincidir con `domain.base` en `config.yml`. El setup escribe ambos en `.env` desde `config.yml` — si los cambias, cambia ambos en `config.yml`.
+`DOMAIN` y `TOKEN` son las únicas variables que tienes que rellenar a mano. El resto se genera o se escribe automáticamente.
 
 ### 2. Mapeo de subdominios — `config.yml`
 
 ```yaml
-domain:
-  base: "miapp.duckdns.org"   # tu subdominio en DuckDNS
+# El dominio va en .env (DOMAIN=miapp.duckdns.org), no aquí.
 
 authelia:
   totp_issuer: "MiApp"         # nombre en la app de autenticación (Google Auth, etc.)
@@ -123,7 +122,7 @@ services:
 
 | Campo | Tipo | Descripción |
 |---|---|---|
-| `subdomain` | string | Nombre del subdominio. Resultado: `nombre.tudominio.duckdns.org` |
+| `subdomain` | string | Nombre del subdominio. Resultado: `nombre.$DOMAIN` |
 | `port` | number | Puerto del host al que apunta el proxy |
 | `protected` | boolean | `true` = requiere login en Authelia. `false` = solo SSL |
 | `cors_origin` | string | (opcional) Subdominio de origen para cabeceras CORS. P.ej: `web` |

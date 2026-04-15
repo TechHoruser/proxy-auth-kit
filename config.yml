@@ -1,8 +1,6 @@
 # proxy-auth-kit — Configuración
+# El dominio y el token de DuckDNS se definen en .env, no aquí.
 # Edita este archivo antes de ejecutar: npm run setup
-
-domain:
-  base: "miproyecto.duckdns.org"   # Tu subdominio en DuckDNS (sin https://)
 
 authelia:
   totp_issuer: "MiProyecto"         # Nombre que aparece en la app de autenticación
@@ -12,7 +10,7 @@ authelia:
 # El subdominio "auth" está reservado y se genera automáticamente para el portal Authelia.
 #
 # Opciones por servicio:
-#   subdomain:    nombre del subdominio (p.ej. "web" → web.miproyecto.duckdns.org)
+#   subdomain:    nombre del subdominio → SUBDOMAIN.DOMAIN (DOMAIN viene del .env)
 #   port:         puerto en el host al que apunta el proxy
 #   protected:    true = requiere login en Authelia | false = solo SSL, sin autenticación
 #   cors_origin:  (opcional) subdominio que se acepta como origen CORS (genera cabeceras OPTIONS)

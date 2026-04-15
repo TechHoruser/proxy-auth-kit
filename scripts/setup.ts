@@ -20,7 +20,6 @@ interface ServiceConfig {
 }
 
 interface Config {
-  domain: { base: string };
   authelia: { totp_issuer: string; default_redirect: string };
   services: ServiceConfig[];
 }
@@ -175,8 +174,7 @@ ${websocketHeaders}
     }`;
 };
 
-const generateNginxConf = (config: Config): string => {
-  const domain = config.domain.base;
+const generateNginxConf = (config: Config, domain: string): string => {
   const allSubdomains = [
     domain,
     ...config.services.map((s) => `${s.subdomain}.${domain}`),
@@ -269,7 +267,6 @@ async function main() {
     process.exit(1);
   }
   const config = yaml.load(fs.readFileSync(configPath, "utf8")) as Config;
-  const DOMAIN = config.domain.base;
 
   // 2. Cargar / crear .env
   const envPath = path.resolve(process.cwd(), ".env");
@@ -286,18 +283,24 @@ async function main() {
     });
   }
 
-  // Domain y Authelia settings vienen de config.yml
-  envVariables["DOMAIN"] = DOMAIN;
-  envVariables["AUTHELIA_TOTP_ISSUER"] = config.authelia.totp_issuer;
-  envVariables["AUTHELIA_DEFAULT_REDIRECTION_URL"] =
-    `https://${config.authelia.default_redirect}.${DOMAIN}/`;
-
-  // TOKEN de DuckDNS — pedir si no existe
+  // DOMAIN y TOKEN vienen del .env — pedir si faltan
+  if (!envVariables["DOMAIN"]) {
+    envVariables["DOMAIN"] = await askQuestion(
+      "Introduce tu dominio DuckDNS (ej: miapp.duckdns.org): ",
+    );
+  }
   if (!envVariables["TOKEN"]) {
     envVariables["TOKEN"] = await askQuestion(
       "Introduce tu token de DuckDNS: ",
     );
   }
+
+  const DOMAIN = envVariables["DOMAIN"];
+
+  // Authelia settings desde config.yml (usan DOMAIN del .env)
+  envVariables["AUTHELIA_TOTP_ISSUER"] = config.authelia.totp_issuer;
+  envVariables["AUTHELIA_DEFAULT_REDIRECTION_URL"] =
+    `https://${config.authelia.default_redirect}.${DOMAIN}/`;
 
   // 3. Generar secretos Authelia si no existen
   if (!envVariables["AUTHELIA_JWT_SECRET"]) {
@@ -325,7 +328,7 @@ async function main() {
   console.log(`\n[1/5] Generando nginx.conf para dominio: ${DOMAIN}...`);
   const nginxDir = path.resolve(process.cwd(), "nginx");
   fs.mkdirSync(nginxDir, { recursive: true });
-  const nginxConf = generateNginxConf(config);
+  const nginxConf = generateNginxConf(config, DOMAIN);
   fs.writeFileSync(path.join(nginxDir, "nginx.conf"), nginxConf);
   console.log(
     `✅ nginx.conf generado con ${config.services.length} servicio(s) + auth.`,
