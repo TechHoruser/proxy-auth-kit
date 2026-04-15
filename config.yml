@@ -1,0 +1,46 @@
+# proxy-auth-kit — Configuración
+# Edita este archivo antes de ejecutar: npm run setup
+
+domain:
+  base: "miproyecto.duckdns.org"   # Tu subdominio en DuckDNS (sin https://)
+
+authelia:
+  totp_issuer: "MiProyecto"         # Nombre que aparece en la app de autenticación
+  default_redirect: "web"           # Subdominio al que redirige el dominio raíz tras login
+
+# Mapeos subdominio → puerto del host.
+# El subdominio "auth" está reservado y se genera automáticamente para el portal Authelia.
+#
+# Opciones por servicio:
+#   subdomain:    nombre del subdominio (p.ej. "web" → web.miproyecto.duckdns.org)
+#   port:         puerto en el host al que apunta el proxy
+#   protected:    true = requiere login en Authelia | false = solo SSL, sin autenticación
+#   cors_origin:  (opcional) subdominio que se acepta como origen CORS (genera cabeceras OPTIONS)
+#   websocket:    (opcional) true = añade cabeceras Upgrade para WebSockets
+#   public_paths: (opcional) lista de rutas dentro de un servicio protegido que NO requieren auth
+services:
+  - subdomain: web
+    port: 3001
+    protected: true
+
+  - subdomain: api
+    port: 3000
+    protected: true
+    cors_origin: web
+
+  - subdomain: docs
+    port: 3002
+    protected: true
+
+  # Ejemplo: servicio público (sin Authelia) con WebSocket
+  # - subdomain: monitor
+  #   port: 8080
+  #   protected: false
+  #   websocket: true
+
+  # Ejemplo: servicio protegido con una ruta pública (webhook)
+  # - subdomain: app
+  #   port: 4000
+  #   protected: true
+  #   public_paths:
+  #     - /webhook/

@@ -1,0 +1,15 @@
+# Secrets — nunca commitear
+.env
+
+# Datos en runtime (base de datos sqlite de Authelia, notificaciones)
+data/
+
+# Certificados SSL generados por Certbot
+nginx/certs/
+nginx/certbot-data/
+
+# Configuración nginx generada en runtime por setup.ts
+nginx/nginx.conf
+
+# Dependencias Node
+node_modules/

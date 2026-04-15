@@ -1,0 +1,45 @@
+networks:
+  proxy_net:
+    name: proxy_net
+    driver: bridge
+
+services:
+
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    volumes:
+      - ./authelia/configuration.yml:/config/configuration.yml
+      - ./authelia/users_database.yml:/config/users_database.yml
+      - ./data/authelia:/data
+    networks:
+      - proxy_net
+    expose:
+      - 9091
+    restart: unless-stopped
+    environment:
+      - TZ=Europe/Madrid
+      - X_AUTHELIA_CONFIG_FILTERS=template
+      - DOMAIN=${DOMAIN}
+      - AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET=${AUTHELIA_JWT_SECRET}
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+      - AUTHELIA_TOTP_ISSUER=${AUTHELIA_TOTP_ISSUER}
+      - AUTHELIA_DEFAULT_REDIRECTION_URL=${AUTHELIA_DEFAULT_REDIRECTION_URL}
+
+  nginx:
+    image: nginx:alpine
+    container_name: auth-proxy-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/letsencrypt:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - proxy_net
+    depends_on:
+      - authelia
+    restart: unless-stopped
