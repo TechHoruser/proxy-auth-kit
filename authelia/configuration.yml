@@ -30,7 +30,6 @@ session:
     - name: authelia_session
       domain: '{{ env "DOMAIN" }}'
       authelia_url: 'https://auth.{{ env "DOMAIN" }}/'
-      default_redirection_url: '{{ env "AUTHELIA_DEFAULT_REDIRECTION_URL" }}'
       expiration: 3600
       inactivity: 300
 

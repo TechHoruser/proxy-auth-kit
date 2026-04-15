@@ -200,10 +200,18 @@ infer_repo_dir() {
 }
 
 repo_already_exists() {
+	# Caso 1: REPO_DIR explícito y existe
 	if [ -n "${REPO_DIR}" ] && [ -d "${REPO_DIR}" ]; then
 		return 0
 	fi
 
+	# Caso 2: ya estamos dentro de un repo git (el script se ejecutó desde el propio repo)
+	if git rev-parse --git-dir > /dev/null 2>&1; then
+		REPO_DIR="$(git rev-parse --show-toplevel)"
+		return 0
+	fi
+
+	# Caso 3: inferir directorio a partir de REPO_URL
 	if [ -z "${REPO_DIR}" ] && [ -n "${REPO_URL}" ]; then
 		local inferred_dir
 		inferred_dir="$(infer_repo_dir "${REPO_URL}")"

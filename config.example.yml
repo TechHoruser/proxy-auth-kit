@@ -3,8 +3,7 @@
 # Edita este archivo antes de ejecutar: npm run setup
 
 authelia:
-  totp_issuer: "MiProyecto"         # Nombre que aparece en la app de autenticación
-  default_redirect: "web"           # Subdominio al que redirige el dominio raíz tras login
+  totp_issuer: "MiProyecto"         # Nombre que aparece en la app de autenticación (2FA)
 
 # Mapeos subdominio → puerto del host.
 # El subdominio "auth" está reservado y se genera automáticamente para el portal Authelia.
@@ -17,18 +16,10 @@ authelia:
 #   websocket:    (opcional) true = añade cabeceras Upgrade para WebSockets
 #   public_paths: (opcional) lista de rutas dentro de un servicio protegido que NO requieren auth
 services:
-  - subdomain: web
-    port: 3001
-    protected: true
-
-  - subdomain: api
-    port: 3000
-    protected: true
-    cors_origin: web
-
-  - subdomain: docs
-    port: 3002
-    protected: true
+  # Añade aquí tus servicios. Ejemplo:
+  # - subdomain: web
+  #   port: 3001
+  #   protected: true
 
   # Ejemplo: servicio público (sin Authelia) con WebSocket
   # - subdomain: monitor
@@ -40,5 +31,6 @@ services:
   # - subdomain: app
   #   port: 4000
   #   protected: true
+  #   cors_origin: frontend
   #   public_paths:
   #     - /webhook/

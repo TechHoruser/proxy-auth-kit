@@ -1,6 +1,10 @@
 # Secrets — nunca commitear
 .env
 
+# Configuración específica del servidor (subdominio ↔ puerto, authelia settings)
+# Editar config.example.yml como plantilla y copiar a config.yml en cada servidor
+config.yml
+
 # Datos en runtime (base de datos sqlite de Authelia, notificaciones)
 data/
 
@@ -13,3 +17,6 @@ nginx/nginx.conf
 
 # Dependencias Node
 node_modules/
+
+# Estado del setup (progreso de instalación, no versionado)
+.setup-state

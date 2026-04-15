@@ -46,7 +46,7 @@ Cada petición a un subdominio protegido pasa por Authelia antes de llegar al se
 Copia y ejecuta este único comando en el servidor. Instala git, Node.js y Docker, clona el repo y lanza el setup interactivo:
 
 ```bash
-REPO_URL="git@github.com:tu-org/proxy-auth-kit.git" bash <(curl -fsSL https://raw.githubusercontent.com/tu-org/proxy-auth-kit/main/scripts/start.sh)
+REPO_URL="git@github.com:TechHoruser/proxy-auth-kit.git" bash <(curl -fsSL https://raw.githubusercontent.com/TechHoruser/proxy-auth-kit/main/scripts/start.sh)
 ```
 
 O si ya tienes el script en el servidor:
