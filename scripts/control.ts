@@ -228,8 +228,8 @@ const printOtpData = (username: string, secret: string) => {
 // ---------------------------------------------------------------------------
 
 const restartAuthelia = () => {
-  console.log("ℹ️  Reiniciando Authelia para aplicar cambios...");
-  runCommand("docker compose restart authelia");
+  console.log("ℹ️  Recargando Authelia para aplicar cambios...");
+  runCommand("docker compose kill --signal=SIGUSR1 authelia");
 };
 
 const generateAutheliaPasswordHash = (password: string): string | null => {

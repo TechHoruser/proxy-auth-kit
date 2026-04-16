@@ -159,8 +159,9 @@ notifier:
   );
 }
 
-function restartAuthelia(): void {
-  spawn('docker', ['compose', 'restart', 'authelia'], {
+function reloadAuthelia(): void {
+  // SIGUSR1 recarga config y users_database sin reiniciar — las sesiones se preservan
+  spawn('docker', ['compose', 'kill', '--signal=SIGUSR1', 'authelia'], {
     cwd: PROJECT_ROOT,
     stdio: 'ignore',
     detached: true,
@@ -237,7 +238,7 @@ app.post(
       groups: Array.isArray(groups) ? groups : [],
     };
     writeDb(db);
-    restartAuthelia();
+    reloadAuthelia();
     res.status(201).json({ username });
   }),
 );
@@ -258,7 +259,7 @@ app.put('/api/users/:username', (req, res) => {
   if (email !== undefined) db.users[username].email = email;
   if (groups !== undefined) db.users[username].groups = Array.isArray(groups) ? groups : [];
   writeDb(db);
-  restartAuthelia();
+  reloadAuthelia();
   res.json({ username });
 });
 
@@ -284,7 +285,7 @@ app.put(
     });
     db.users[username].password = hash;
     writeDb(db);
-    restartAuthelia();
+    reloadAuthelia();
     res.json({ username });
   }),
 );
@@ -298,7 +299,7 @@ app.delete('/api/users/:username', (req, res) => {
   }
   delete db.users[username];
   writeDb(db);
-  restartAuthelia();
+  reloadAuthelia();
   res.json({ username });
 });
 
@@ -353,7 +354,7 @@ app.put('/api/services/:subdomain/groups', (req, res) => {
     writeConfig(config);
     const domain = getDomain();
     if (domain) applyAutheliaConfig(config, domain);
-    restartAuthelia();
+    reloadAuthelia();
     res.json({ subdomain });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
