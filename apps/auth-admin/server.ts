@@ -234,7 +234,7 @@ app.post(
       groups: Array.isArray(groups) ? groups : [],
     };
     writeDb(db);
-    // watch: true en Authelia detecta el cambio automáticamente; no hace falta señal
+    reloadAuthelia();
     res.status(201).json({ username });
   }),
 );
@@ -255,6 +255,7 @@ app.put('/api/users/:username', (req, res) => {
   if (email !== undefined) db.users[username].email = email;
   if (groups !== undefined) db.users[username].groups = Array.isArray(groups) ? groups : [];
   writeDb(db);
+  reloadAuthelia();
   res.json({ username });
 });
 
@@ -280,6 +281,7 @@ app.put(
     });
     db.users[username].password = hash;
     writeDb(db);
+    reloadAuthelia();
     res.json({ username });
   }),
 );
@@ -293,6 +295,7 @@ app.delete('/api/users/:username', (req, res) => {
   }
   delete db.users[username];
   writeDb(db);
+  reloadAuthelia();
   res.json({ username });
 });
 
