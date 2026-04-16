@@ -12,13 +12,21 @@ authelia:
 #   subdomain:    nombre del subdominio → SUBDOMAIN.DOMAIN (DOMAIN viene del .env)
 #   port:         puerto en el host al que apunta el proxy
 #   protected:    true = requiere login en Authelia | false = solo SSL, sin autenticación
+#   groups:       (opcional) lista de grupos con acceso; si se omite, cualquier usuario autenticado puede entrar
 #   cors_origin:  (opcional) subdominio que se acepta como origen CORS (genera cabeceras OPTIONS)
 #   websocket:    (opcional) true = añade cabeceras Upgrade para WebSockets
 #   public_paths: (opcional) lista de rutas dentro de un servicio protegido que NO requieren auth
 services:
-  # Añade aquí tus servicios. Ejemplo:
-  # - subdomain: web
+  # Ejemplo: accesible solo al grupo "admins"
+  # - subdomain: admin
   #   port: 3001
+  #   protected: true
+  #   groups:
+  #     - admins
+
+  # Ejemplo: accesible a cualquier usuario autenticado
+  # - subdomain: app
+  #   port: 3002
   #   protected: true
 
   # Ejemplo: servicio público (sin Authelia) con WebSocket
@@ -28,9 +36,11 @@ services:
   #   websocket: true
 
   # Ejemplo: servicio protegido con una ruta pública (webhook)
-  # - subdomain: app
+  # - subdomain: api
   #   port: 4000
   #   protected: true
+  #   groups:
+  #     - devs
   #   cors_origin: frontend
   #   public_paths:
   #     - /webhook/

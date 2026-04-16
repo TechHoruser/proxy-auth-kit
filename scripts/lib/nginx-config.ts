@@ -7,6 +7,7 @@ export interface ServiceConfig {
   cors_origin?: string;
   websocket?: boolean;
   public_paths?: string[];
+  groups?: string[];
 }
 
 export interface Config {

@@ -12,8 +12,9 @@ data/
 nginx/certs/
 nginx/certbot-data/
 
-# Configuración nginx generada en runtime por setup.ts
+# Configuración generada en runtime por setup.ts (específica del servidor)
 nginx/nginx.conf
+authelia/configuration.yml
 
 # Dependencias Node
 node_modules/

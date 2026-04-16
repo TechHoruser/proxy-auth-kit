@@ -6,6 +6,7 @@ import readline from "readline";
 import crypto from "crypto";
 import yaml from "js-yaml";
 import { generateNginxConf, type Config } from "./lib/nginx-config.js";
+import { generateAutheliaConf } from "./lib/authelia-config.js";
 
 // ---------------------------------------------------------------------------
 // Setup state — persiste el progreso entre ejecuciones

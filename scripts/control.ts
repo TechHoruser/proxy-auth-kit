@@ -5,6 +5,7 @@ import readline from "readline";
 import crypto from "crypto";
 import yaml from "js-yaml";
 import { generateNginxConf, type Config, type ServiceConfig } from "./lib/nginx-config.js";
+import { generateAutheliaConf } from "./lib/authelia-config.js";
 
 // ---------------------------------------------------------------------------
 // Utils
@@ -91,6 +92,74 @@ const findUserBlock = (
   }
 
   return { start, end, lines };
+};
+
+// ---------------------------------------------------------------------------
+// User-group helpers
+// ---------------------------------------------------------------------------
+
+const getUserGroups = (usersYaml: string, username: string): string[] => {
+  const userBlock = findUserBlock(usersYaml, username);
+  if (!userBlock) return [];
+  const blockLines = userBlock.lines.slice(userBlock.start, userBlock.end);
+  const groupsLineIdx = blockLines.findIndex((l) => l.trim() === "groups:");
+  if (groupsLineIdx === -1) return [];
+  const groups: string[] = [];
+  for (let i = groupsLineIdx + 1; i < blockLines.length; i++) {
+    const m = blockLines[i].match(/^\s*-\s+(.+)$/);
+    if (m) groups.push(m[1].trim());
+    else break;
+  }
+  return groups;
+};
+
+const setUserGroups = (usersYaml: string, username: string, groups: string[]): string => {
+  const userBlock = findUserBlock(usersYaml, username);
+  if (!userBlock) throw new Error(`Usuario '${username}' no encontrado.`);
+  const blockLines = userBlock.lines.slice(userBlock.start, userBlock.end);
+  const groupsLineIdx = blockLines.findIndex((l) => l.trim() === "groups:");
+  let newBlockLines: string[];
+  if (groupsLineIdx !== -1) {
+    let groupsEnd = groupsLineIdx + 1;
+    while (groupsEnd < blockLines.length && /^\s*-\s+/.test(blockLines[groupsEnd])) {
+      groupsEnd++;
+    }
+    newBlockLines = [
+      ...blockLines.slice(0, groupsLineIdx),
+      ...blockLines.slice(groupsEnd),
+    ];
+  } else {
+    newBlockLines = [...blockLines];
+  }
+  if (groups.length > 0) {
+    while (newBlockLines.length > 0 && newBlockLines[newBlockLines.length - 1].trim() === "") {
+      newBlockLines.pop();
+    }
+    newBlockLines.push("    groups:");
+    for (const g of groups) {
+      newBlockLines.push(`      - ${g}`);
+    }
+  }
+  const nextLines = [
+    ...userBlock.lines.slice(0, userBlock.start),
+    ...newBlockLines,
+    ...userBlock.lines.slice(userBlock.end),
+  ];
+  return nextLines.join("\n");
+};
+
+const getAllGroupsFromUsers = (usersYaml: string): string[] => {
+  const groups = new Set<string>();
+  let inGroups = false;
+  for (const line of usersYaml.split(/\r?\n/)) {
+    if (line.trim() === "groups:") { inGroups = true; continue; }
+    if (inGroups) {
+      const m = line.match(/^\s*-\s+(.+)$/);
+      if (m) groups.add(m[1].trim());
+      else inGroups = false;
+    }
+  }
+  return Array.from(groups).sort();
 };
 
 // ---------------------------------------------------------------------------
@@ -359,6 +428,61 @@ function showLatestNotificationCodeFromContainer() {
   console.log(`\x1b[33m${latestBlock}\x1b[0m`);
 }
 
+async function manageUserGroups(): Promise<void> {
+  console.log("\n--- Gestionar grupos del usuario ---");
+  let usersYaml = "";
+  try {
+    usersYaml = readUsersYaml();
+  } catch (error: any) {
+    console.error(`❌ ${error.message}`);
+    return;
+  }
+
+  const usernames = getUsernames(usersYaml);
+  if (usernames.length === 0) {
+    console.log("ℹ️  No hay usuarios.");
+    return;
+  }
+  usernames.forEach((u, i) => console.log(`  ${i + 1}. ${u}`));
+
+  const username = await askQuestion("\nNombre del usuario: ");
+  if (!username || !usernames.includes(username)) {
+    console.error("❌ Usuario no encontrado.");
+    return;
+  }
+
+  const currentGroups = getUserGroups(usersYaml, username);
+  console.log(
+    `\nGrupos actuales de '${username}': ${currentGroups.length > 0 ? currentGroups.join(", ") : "(ninguno)"}`,
+  );
+
+  const allGroups = getAllGroupsFromUsers(usersYaml);
+  if (allGroups.length > 0) {
+    console.log(`Grupos existentes en el sistema: ${allGroups.join(", ")}`);
+  }
+
+  const newGroupsRaw = await askQuestion(
+    `Nueva lista de grupos (separados por coma, Enter para no cambiar, "-" para quitar todos): `,
+  );
+
+  if (newGroupsRaw === "") {
+    console.log("Sin cambios.");
+    return;
+  }
+
+  const newGroups =
+    newGroupsRaw === "-"
+      ? []
+      : newGroupsRaw.split(",").map((g) => g.trim()).filter(Boolean);
+
+  const updatedYaml = setUserGroups(usersYaml, username, newGroups);
+  writeUsersYaml(updatedYaml);
+  console.log(
+    `✅ Grupos de '${username}' actualizados: ${newGroups.length > 0 ? newGroups.join(", ") : "(ninguno)"}`,
+  );
+  restartAuthelia();
+}
+
 async function manageUsers() {
   while (true) {
     console.log("\n--- Gestión de Usuarios (Authelia) ---");
@@ -366,8 +490,9 @@ async function manageUsers() {
     console.log("2. Añadir usuario");
     console.log("3. Cambiar contraseña");
     console.log("4. Eliminar usuario");
-    console.log("5. Ver último código one-time (desde contenedor)");
-    console.log("6. Volver al menú principal");
+    console.log("5. Gestionar grupos del usuario");
+    console.log("6. Ver último código one-time (desde contenedor)");
+    console.log("7. Volver al menú principal");
     console.log("---------------------------------------");
 
     const choice = await askQuestion("Selecciona una opción: ");
@@ -386,9 +511,12 @@ async function manageUsers() {
         await deleteUser();
         break;
       case "5":
-        showLatestNotificationCodeFromContainer();
+        await manageUserGroups();
         break;
       case "6":
+        showLatestNotificationCodeFromContainer();
+        break;
+      case "7":
         return;
       default:
         console.log("Opción no válida.");
@@ -539,6 +667,7 @@ const cleanupDockerState = (): void => {
 
 const CONFIG_PATH = path.resolve(process.cwd(), "config.yml");
 const NGINX_CONF_PATH = path.resolve(process.cwd(), "nginx", "nginx.conf");
+const AUTHELIA_CONF_PATH = path.resolve(process.cwd(), "authelia", "configuration.yml");
 
 const readConfig = (): Config => {
   if (!fs.existsSync(CONFIG_PATH)) {
@@ -574,8 +703,11 @@ const applyServiceChanges = (config: Config): void => {
   fs.mkdirSync(nginxDir, { recursive: true });
   fs.writeFileSync(NGINX_CONF_PATH, generateNginxConf(config, domain));
   console.log("✅ nginx.conf regenerado.");
+  fs.writeFileSync(AUTHELIA_CONF_PATH, generateAutheliaConf(config, domain));
+  console.log("✅ Authelia configuration.yml regenerado.");
   runCommand("docker compose exec nginx nginx -s reload 2>/dev/null || docker compose restart nginx");
   console.log("✅ Nginx recargado.");
+  restartAuthelia();
 };
 
 const openUfwPort = (port: number): void => {
@@ -602,6 +734,7 @@ function listServices(config: Config, domain: string): void {
   config.services.forEach((svc, i) => {
     const lock = svc.protected ? "🔒" : "🌐";
     const extras: string[] = [];
+    if (svc.groups?.length) extras.push(`grupos: ${svc.groups.join(", ")}`);
     if (svc.cors_origin) extras.push(`cors: ${svc.cors_origin}`);
     if (svc.websocket) extras.push("ws");
     if (svc.public_paths?.length) extras.push(`public: ${svc.public_paths.join(", ")}`);
@@ -633,10 +766,19 @@ async function addService(): Promise<void> {
   const websocketAns = await askQuestion("¿Habilitar WebSocket? [s/N]: ");
   const websocket = websocketAns.toLowerCase() === "s" || undefined;
 
+  let groups: string[] | undefined;
+  if (isProtected) {
+    const groupsRaw = await askQuestion(
+      "Grupos con acceso (separados por coma, Enter para cualquier usuario autenticado): ",
+    );
+    groups = groupsRaw ? groupsRaw.split(",").map((g) => g.trim()).filter(Boolean) : undefined;
+  }
+
   const svc: ServiceConfig = {
     subdomain,
     port,
     protected: isProtected,
+    ...(groups?.length && { groups }),
     ...(corsOrigin && { cors_origin: corsOrigin }),
     ...(websocket && { websocket: true }),
   };
@@ -689,11 +831,27 @@ async function editService(): Promise<void> {
       ? svc.websocket
       : (websocketAns.toLowerCase() === "s" ? true : undefined);
 
+  let newGroups: string[] | undefined = svc.groups;
+  if (newProtected) {
+    const currentGroupsStr = svc.groups?.length ? svc.groups.join(", ") : "cualquier usuario autenticado";
+    const groupsAns = await askQuestion(
+      `Grupos con acceso [${currentGroupsStr}] (Enter para no cambiar, "-" para quitar restricción): `,
+    );
+    if (groupsAns === "-") {
+      newGroups = undefined;
+    } else if (groupsAns !== "") {
+      newGroups = groupsAns.split(",").map((g) => g.trim()).filter(Boolean);
+    }
+  } else {
+    newGroups = undefined;
+  }
+
   const oldPort = svc.port;
   config.services[idx] = {
     subdomain: newSubdomain || svc.subdomain,
     port: newPort,
     protected: newProtected,
+    ...(newGroups?.length && { groups: newGroups }),
     ...(newCorsOrigin && { cors_origin: newCorsOrigin }),
     ...(newWebsocket && { websocket: true }),
     ...(svc.public_paths?.length && { public_paths: svc.public_paths }),
