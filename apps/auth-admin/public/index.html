@@ -585,6 +585,7 @@
   <div class="tabs">
     <button class="tab active" data-tab="users">Usuarios</button>
     <button class="tab" data-tab="groups">Grupos</button>
+    <button class="tab" data-tab="services">Servicios</button>
   </div>
 
   <!-- Users tab -->
@@ -609,6 +610,26 @@
           </tr>
         </thead>
         <tbody id="usersBody">
+          <tr><td colspan="5"><div class="empty"><div class="spinner"></div></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Services tab -->
+  <div class="tab-panel" id="tab-services">
+    <div class="table-wrap">
+      <table id="servicesTable">
+        <thead>
+          <tr>
+            <th>Subdominio</th>
+            <th>Puerto</th>
+            <th>Auth</th>
+            <th>Grupos con acceso</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="servicesBody">
           <tr><td colspan="5"><div class="empty"><div class="spinner"></div></div></td></tr>
         </tbody>
       </table>
@@ -689,6 +710,33 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" data-close="modalPassword">Cancelar</button>
       <button class="btn btn-accent" id="btnSavePassword">Cambiar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Service Groups Modal -->
+<div class="overlay" id="modalServiceGroups">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Grupos con acceso — <code id="svcSubdomain" style="font-size:13px"></code></span>
+      <button class="modal-close" data-close="modalServiceGroups">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--text-muted);margin-bottom:14px;font-size:13px">
+        Sin grupos = cualquier usuario autenticado puede acceder.
+      </p>
+      <div class="form-group">
+        <label>Grupos permitidos</label>
+        <div class="groups-checklist" id="svcGroupsList"></div>
+        <div class="new-group-row">
+          <input type="text" id="svcNewGroup" placeholder="Nuevo grupo…" />
+          <button class="btn btn-ghost btn-sm" id="btnAddSvcGroup">+ Añadir</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" data-close="modalServiceGroups">Cancelar</button>
+      <button class="btn btn-primary" id="btnSaveServiceGroups">Guardar</button>
     </div>
   </div>
 </div>
@@ -885,9 +933,9 @@
   // ---------------------------------------------------------------------------
   // Groups checklist (shared between modals)
   // ---------------------------------------------------------------------------
-  function buildGroupsChecklist(containerId, selectedGroups) {
+  function buildGroupsChecklist(containerId, selectedGroups, extraKnown = []) {
     const known = getUniqueGroups();
-    const all = Array.from(new Set([...known, ...selectedGroups])).sort();
+    const all = Array.from(new Set([...known, ...extraKnown, ...selectedGroups])).sort();
     const container = document.getElementById(containerId);
 
     function render() {
@@ -1085,10 +1133,94 @@
   document.getElementById('groupSearch').addEventListener('input', renderGroups);
 
   // ---------------------------------------------------------------------------
+  // Services
+  // ---------------------------------------------------------------------------
+  let allServices = [];
+
+  async function loadServices() {
+    try {
+      allServices = await api('GET', '/api/services');
+      renderServices();
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  }
+
+  function renderServices() {
+    const tbody = document.getElementById('servicesBody');
+    if (allServices.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">🔌</div><div class="empty-text">No hay servicios configurados</div></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = allServices.map(svc => {
+      const lock = svc.protected ? '🔒' : '🌐';
+      const urlHtml = svc.url
+        ? `<a href="${esc(svc.url)}" target="_blank" style="color:var(--accent-hover);text-decoration:none;font-family:monospace;font-size:12px">${esc(svc.subdomain)}</a>`
+        : `<span style="font-family:monospace;font-size:12px">${esc(svc.subdomain)}</span>`;
+      const groupsHtml = svc.groups.length > 0
+        ? svc.groups.map(g => `<span class="${g === 'admins' ? 'badge badge-admin' : 'badge'}">${esc(g)}</span>`).join('')
+        : `<span class="no-groups">cualquier usuario autenticado</span>`;
+      const editBtn = svc.protected
+        ? `<button class="btn btn-ghost btn-sm" onclick="openEditServiceGroups('${esc(svc.subdomain)}')">Editar grupos</button>`
+        : `<span style="color:var(--text-muted);font-size:12px">público</span>`;
+      return `
+        <tr>
+          <td>${urlHtml}</td>
+          <td style="font-family:monospace;color:var(--text-muted)">:${svc.port}</td>
+          <td>${lock}</td>
+          <td>${groupsHtml}</td>
+          <td><div class="actions">${editBtn}</div></td>
+        </tr>`;
+    }).join('');
+  }
+
+  function openEditServiceGroups(subdomain) {
+    const svc = allServices.find(s => s.subdomain === subdomain);
+    if (!svc) return;
+    document.getElementById('svcSubdomain').textContent = subdomain;
+    document.getElementById('btnSaveServiceGroups').dataset.subdomain = subdomain;
+    const allKnownGroups = getUniqueGroups();
+    buildGroupsChecklist('svcGroupsList', [...(svc.groups ?? [])], allKnownGroups);
+    openModal('modalServiceGroups');
+  }
+
+  document.getElementById('btnAddSvcGroup').addEventListener('click', () => {
+    const input = document.getElementById('svcNewGroup');
+    const name = input.value.trim().toLowerCase().replace(/\s+/g, '-');
+    if (!name) return;
+    document.getElementById('svcGroupsList')._addGroup(name);
+    input.value = '';
+  });
+
+  document.getElementById('svcNewGroup').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btnAddSvcGroup').click();
+  });
+
+  document.getElementById('btnSaveServiceGroups').addEventListener('click', async () => {
+    const btn = document.getElementById('btnSaveServiceGroups');
+    const subdomain = btn.dataset.subdomain;
+    const groups = document.getElementById('svcGroupsList')._getSelected();
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Guardando…';
+    try {
+      await api('PUT', `/api/services/${subdomain}/groups`, { groups });
+      toast(`Grupos de '${subdomain}' actualizados`, 'success');
+      closeModal('modalServiceGroups');
+      await loadServices();
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Guardar';
+    }
+  });
+
+  // ---------------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------------
   loadMe();
   loadAll();
+  loadServices();
 </script>
 </body>
 </html>
