@@ -155,13 +155,29 @@ notifier:
   );
 }
 
-function reloadAuthelia(): void {
-  // SIGUSR1 recarga config y users_database sin reiniciar — las sesiones se preservan
+function reloadAutheliaRules(): void {
+  // SIGUSR1: recarga reglas de acceso sin reiniciar (sesiones preservadas)
+  // NO recarga users_database.yml — para eso se necesita reinicio completo
   spawn('docker', ['compose', 'kill', '--signal=SIGUSR1', 'authelia'], {
     cwd: PROJECT_ROOT,
     stdio: 'ignore',
     detached: true,
   }).unref();
+}
+
+async function restartAutheliaAndWait(): Promise<void> {
+  // Reinicia Authelia y espera a que esté lista antes de continuar.
+  // Las sesiones sobreviven porque están en SQLite (volume persistido).
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn('docker', ['compose', 'restart', 'authelia'], {
+      cwd: PROJECT_ROOT,
+      stdio: 'ignore',
+    });
+    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`))));
+    child.on('error', reject);
+  });
+  // Pausa para que el servidor HTTP de Authelia esté listo
+  await new Promise((r) => setTimeout(r, 2000));
 }
 
 // ---------------------------------------------------------------------------
@@ -234,12 +250,12 @@ app.post(
       groups: Array.isArray(groups) ? groups : [],
     };
     writeDb(db);
-    reloadAuthelia();
+    await restartAutheliaAndWait();
     res.status(201).json({ username });
   }),
 );
 
-app.put('/api/users/:username', (req, res) => {
+app.put('/api/users/:username', wrap(async (req, res) => {
   const { username } = req.params;
   const { displayname, email, groups } = req.body as {
     displayname?: string;
@@ -255,9 +271,9 @@ app.put('/api/users/:username', (req, res) => {
   if (email !== undefined) db.users[username].email = email;
   if (groups !== undefined) db.users[username].groups = Array.isArray(groups) ? groups : [];
   writeDb(db);
-  reloadAuthelia();
+  await restartAutheliaAndWait();
   res.json({ username });
-});
+}));
 
 app.put(
   '/api/users/:username/password',
@@ -281,12 +297,12 @@ app.put(
     });
     db.users[username].password = hash;
     writeDb(db);
-    reloadAuthelia();
+    await restartAutheliaAndWait();
     res.json({ username });
   }),
 );
 
-app.delete('/api/users/:username', (req, res) => {
+app.delete('/api/users/:username', wrap(async (req, res) => {
   const { username } = req.params;
   const db = readDb();
   if (!db.users[username]) {
@@ -295,9 +311,9 @@ app.delete('/api/users/:username', (req, res) => {
   }
   delete db.users[username];
   writeDb(db);
-  reloadAuthelia();
+  await restartAutheliaAndWait();
   res.json({ username });
-});
+}));
 
 app.get('/api/groups', (req, res) => {
   const db = readDb();
