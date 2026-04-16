@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "setup": "npx tsx scripts/setup.ts",
-    "control": "npx tsx scripts/control.ts"
+    "control": "npx tsx scripts/control.ts",
+    "auth-admin": "cd apps/auth-admin && npm install --silent && npm start"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",

@@ -17,6 +17,13 @@ authelia:
 #   websocket:    (opcional) true = añade cabeceras Upgrade para WebSockets
 #   public_paths: (opcional) lista de rutas dentro de un servicio protegido que NO requieren auth
 services:
+  # Panel de administración de usuarios (auth-admin) — solo grupo admins
+  # - subdomain: auth-admin
+  #   port: 1234
+  #   protected: true
+  #   groups:
+  #     - admins
+
   # Ejemplo: accesible solo al grupo "admins"
   # - subdomain: admin
   #   port: 3001

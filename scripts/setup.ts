@@ -85,6 +85,70 @@ const runCommand = (
 const generateSecret = () => crypto.randomBytes(32).toString("hex");
 
 // ---------------------------------------------------------------------------
+// auth-admin helpers
+// ---------------------------------------------------------------------------
+
+const AUTH_ADMIN_SUBDOMAIN = "auth-admin";
+const AUTH_ADMIN_PORT = 1234;
+
+function ensureAuthAdminInConfig(config: Config, configPath: string): boolean {
+  if (config.services.some((s) => s.subdomain === AUTH_ADMIN_SUBDOMAIN)) return false;
+
+  config.services.unshift({
+    subdomain: AUTH_ADMIN_SUBDOMAIN,
+    port: AUTH_ADMIN_PORT,
+    protected: true,
+    groups: ["admins"],
+  } as any);
+
+  const header =
+    "# proxy-auth-kit — Configuración\n" +
+    "# El dominio y el token de DuckDNS se definen en .env, no aquí.\n\n";
+  fs.writeFileSync(configPath, header + yaml.dump(config, { lineWidth: 120 }));
+  console.log(`ℹ️  Servicio '${AUTH_ADMIN_SUBDOMAIN}' añadido automáticamente al config.`);
+  return true;
+}
+
+function startAuthAdmin(projectRoot: string): void {
+  const appDir = path.resolve(projectRoot, "apps", "auth-admin");
+
+  if (!fs.existsSync(appDir)) {
+    console.warn(`⚠️  Directorio apps/auth-admin no encontrado — omitiendo arranque.`);
+    return;
+  }
+
+  console.log("\nInstalando dependencias de auth-admin...");
+  try {
+    execSync("npm install --silent", { cwd: appDir, stdio: "inherit" });
+  } catch {
+    console.error("❌ npm install falló en apps/auth-admin.");
+    return;
+  }
+
+  // Asegurar PM2
+  const hasPm2 = runCommand("which pm2", { stdio: "ignore" }, true);
+  if (!hasPm2) {
+    console.log("Instalando PM2 globalmente...");
+    runCommand("npm install -g pm2", { stdio: "inherit" }, false);
+  }
+
+  // Arrancar o reiniciar
+  const isRunning = runCommand("pm2 describe auth-admin", { stdio: "ignore" }, true);
+  if (isRunning) {
+    runCommand("pm2 restart auth-admin", { stdio: "inherit" }, true);
+  } else {
+    runCommand(
+      `pm2 start npm --name auth-admin --cwd "${appDir}" -- start`,
+      { stdio: "inherit" },
+      true,
+    );
+  }
+
+  runCommand("pm2 save", { stdio: "ignore" }, true);
+  console.log(`✅ auth-admin arrancado en el puerto ${AUTH_ADMIN_PORT} (PM2).`);
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -149,6 +213,14 @@ async function main() {
   }
   const rawConfig = yaml.load(fs.readFileSync(configPath, "utf8")) as Config;
   const config: Config = { ...rawConfig, services: rawConfig.services ?? [] };
+
+  // Garantizar que auth-admin esté siempre en la configuración
+  const authAdminAdded = ensureAuthAdminInConfig(config, configPath);
+  if (authAdminAdded) {
+    // Forzar regeneración de nginx.conf para incluir el nuevo servicio
+    state.steps = state.steps.filter((s) => s !== "nginx_conf");
+    saveState(state);
+  }
 
   // 2. Cargar .env (siempre, aunque el paso 'env' ya esté hecho)
   const envPath = path.resolve(process.cwd(), ".env");
@@ -355,6 +427,10 @@ async function main() {
   runCommand("docker network rm proxy_net 2>/dev/null || true", { stdio: "ignore" }, true);
   runCommand("docker compose up -d");
 
+  // — auth-admin (siempre) ---------------------------------------------------
+  console.log("\n[+] Arrancando auth-admin...");
+  startAuthAdmin(process.cwd());
+
   // ---------------------------------------------------------------------------
   // Resumen
   // ---------------------------------------------------------------------------
@@ -369,6 +445,7 @@ async function main() {
   }
   console.log(`\nUsuario por defecto: admin / authelia`);
   console.log(`Cambia la contraseña con: npm run control`);
+  console.log(`Panel de administración: https://auth-admin.${DOMAIN}  (solo grupo admins)`);
   if (!isDone(state, "certbot")) {
     console.log(`\n⚠️  Certbot pendiente. Resuelve el problema con el puerto 80 y vuelve a ejecutar: npm run setup`);
   }
