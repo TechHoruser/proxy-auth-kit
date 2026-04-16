@@ -217,8 +217,8 @@ async function main() {
   // Garantizar que auth-admin esté siempre en la configuración
   const authAdminAdded = ensureAuthAdminInConfig(config, configPath);
   if (authAdminAdded) {
-    // Forzar regeneración de nginx.conf para incluir el nuevo servicio
-    state.steps = state.steps.filter((s) => s !== "nginx_conf");
+    // Forzar regeneración de nginx.conf Y del certificado SSL para incluir el nuevo subdominio
+    state.steps = state.steps.filter((s) => s !== "nginx_conf" && s !== "certbot");
     saveState(state);
   }
 
