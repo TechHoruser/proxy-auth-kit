@@ -20,10 +20,8 @@ export const generateAutheliaConf = (config: Config, domain: string): string => 
     }
   }
 
-  const rulesBlock =
-    rules.length > 0
-      ? rules.join("\n")
-      : `    - domain: ['*.${domain}', '${domain}']\n      policy: one_factor`;
+  // Sin servicios definidos → ninguna regla explícita; default_policy: deny lo cubre todo
+  const rulesBlock = rules.join("\n");
 
   return `###############################################################
 #                   Authelia Configuration                    #
@@ -44,9 +42,7 @@ authentication_backend:
     path: /config/users_database.yml
 
 access_control:
-  default_policy: deny
-  rules:
-${rulesBlock}
+  default_policy: deny${rulesBlock ? `\n  rules:\n${rulesBlock}` : ""}
 
 session:
   cookies:

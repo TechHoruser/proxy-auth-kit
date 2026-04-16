@@ -105,10 +105,7 @@ function applyAutheliaConfig(config: AppConfig, domain: string): void {
       rules.push(`    - domain: '${svcDomain}'\n      policy: one_factor`);
     }
   }
-  const rulesBlock =
-    rules.length > 0
-      ? rules.join('\n')
-      : `    - domain: ['*.${domain}', '${domain}']\n      policy: one_factor`;
+  const rulesBlock = rules.join('\n');
 
   fs.writeFileSync(
     AUTHELIA_CONF_PATH,
@@ -131,9 +128,7 @@ authentication_backend:
     path: /config/users_database.yml
 
 access_control:
-  default_policy: deny
-  rules:
-${rulesBlock}
+  default_policy: deny${rulesBlock ? `\n  rules:\n${rulesBlock}` : ''}
 
 session:
   cookies:

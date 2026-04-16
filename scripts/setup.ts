@@ -295,8 +295,14 @@ async function main() {
     fs.mkdirSync(nginxDir, { recursive: true });
     const nginxConf = generateNginxConf(config, DOMAIN);
     fs.writeFileSync(path.join(nginxDir, "nginx.conf"), nginxConf);
+
+    const autheliaDir = path.resolve(process.cwd(), "authelia");
+    fs.mkdirSync(autheliaDir, { recursive: true });
+    const autheliaConf = generateAutheliaConf(config, DOMAIN);
+    fs.writeFileSync(path.join(autheliaDir, "configuration.yml"), autheliaConf);
+
     console.log(
-      `✅ nginx.conf generado con ${config.services.length} servicio(s) + auth.`,
+      `✅ nginx.conf y authelia/configuration.yml generados con ${config.services.length} servicio(s) + auth.`,
     );
     markDone(state, "nginx_conf");
   }
