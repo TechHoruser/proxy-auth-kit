@@ -40,6 +40,7 @@ log:
 authentication_backend:
   file:
     path: /config/users_database.yml
+    watch: true
 
 access_control:
   default_policy: deny${rulesBlock ? `\n  rules:\n${rulesBlock}` : ""}

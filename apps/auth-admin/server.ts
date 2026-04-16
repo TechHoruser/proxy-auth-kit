@@ -126,6 +126,7 @@ log:
 authentication_backend:
   file:
     path: /config/users_database.yml
+    watch: true
 
 access_control:
   default_policy: deny${rulesBlock ? `\n  rules:\n${rulesBlock}` : ''}
@@ -233,7 +234,7 @@ app.post(
       groups: Array.isArray(groups) ? groups : [],
     };
     writeDb(db);
-    reloadAuthelia();
+    // watch: true en Authelia detecta el cambio automáticamente; no hace falta señal
     res.status(201).json({ username });
   }),
 );
@@ -254,7 +255,6 @@ app.put('/api/users/:username', (req, res) => {
   if (email !== undefined) db.users[username].email = email;
   if (groups !== undefined) db.users[username].groups = Array.isArray(groups) ? groups : [];
   writeDb(db);
-  reloadAuthelia();
   res.json({ username });
 });
 
@@ -280,7 +280,6 @@ app.put(
     });
     db.users[username].password = hash;
     writeDb(db);
-    reloadAuthelia();
     res.json({ username });
   }),
 );
@@ -294,7 +293,6 @@ app.delete('/api/users/:username', (req, res) => {
   }
   delete db.users[username];
   writeDb(db);
-  reloadAuthelia();
   res.json({ username });
 });
 

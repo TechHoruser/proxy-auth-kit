@@ -228,7 +228,9 @@ const printOtpData = (username: string, secret: string) => {
 // ---------------------------------------------------------------------------
 
 const restartAuthelia = () => {
-  console.log("ℹ️  Recargando Authelia para aplicar cambios...");
+  // users_database.yml: watch:true lo recarga automáticamente
+  // configuration.yml: necesita SIGUSR1
+  console.log("ℹ️  Recargando configuración de Authelia...");
   runCommand("docker compose kill --signal=SIGUSR1 authelia");
 };
 
