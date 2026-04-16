@@ -145,6 +145,17 @@ function startAuthAdmin(projectRoot: string): void {
   }
 
   runCommand("pm2 save", { stdio: "ignore" }, true);
+
+  // Abrir puerto en UFW para que Docker (nginx) pueda alcanzar el host
+  const hasUfw = runCommand("which ufw", { stdio: "ignore" }, true);
+  if (hasUfw) {
+    runCommand(
+      `ufw allow from 172.16.0.0/12 to any port ${AUTH_ADMIN_PORT} proto tcp`,
+      { stdio: "ignore" },
+      true,
+    );
+  }
+
   console.log(`✅ auth-admin arrancado en el puerto ${AUTH_ADMIN_PORT} (PM2).`);
 }
 
