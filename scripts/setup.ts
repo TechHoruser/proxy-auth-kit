@@ -263,25 +263,34 @@ async function main() {
     const DOMAIN = envVariables["DOMAIN"];
     envVariables["AUTHELIA_TOTP_ISSUER"] = config.authelia.totp_issuer;
 
-    if (!envVariables["AUTHELIA_JWT_SECRET"]) {
-      console.log("Generando AUTHELIA_JWT_SECRET...");
-      envVariables["AUTHELIA_JWT_SECRET"] = generateSecret();
-    }
-    if (!envVariables["AUTHELIA_SESSION_SECRET"]) {
-      console.log("Generando AUTHELIA_SESSION_SECRET...");
-      envVariables["AUTHELIA_SESSION_SECRET"] = generateSecret();
-    }
-    if (!envVariables["AUTHELIA_STORAGE_ENCRYPTION_KEY"]) {
-      console.log("Generando AUTHELIA_STORAGE_ENCRYPTION_KEY...");
-      envVariables["AUTHELIA_STORAGE_ENCRYPTION_KEY"] = generateSecret();
-    }
-
     const envContent = Object.entries(envVariables)
       .map(([k, v]) => `${k}="${v}"`)
       .join("\n");
     fs.writeFileSync(envPath, envContent + "\n");
     console.log("✅ .env guardado.");
     markDone(state, "env");
+  }
+
+  // Asegurar secretos de Authelia aunque el paso 'env' ya estuviera hecho
+  {
+    let secretsUpdated = false;
+    const ensureSecret = (key: string) => {
+      if (!envVariables[key]) {
+        console.log(`Generando ${key}...`);
+        envVariables[key] = generateSecret();
+        secretsUpdated = true;
+      }
+    };
+    ensureSecret("AUTHELIA_JWT_SECRET");
+    ensureSecret("AUTHELIA_SESSION_SECRET");
+    ensureSecret("AUTHELIA_STORAGE_ENCRYPTION_KEY");
+    if (secretsUpdated) {
+      const envContent = Object.entries(envVariables)
+        .map(([k, v]) => `${k}="${v}"`)
+        .join("\n");
+      fs.writeFileSync(envPath, envContent + "\n");
+      console.log("✅ Secretos de Authelia añadidos a .env.");
+    }
   }
 
   process.env = { ...process.env, ...envVariables };
