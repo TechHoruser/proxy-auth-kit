@@ -228,8 +228,8 @@ async function main() {
   // Garantizar que auth-admin esté siempre en la configuración
   const authAdminAdded = ensureAuthAdminInConfig(config, configPath);
   if (authAdminAdded) {
-    // Forzar regeneración de nginx.conf Y del certificado SSL para incluir el nuevo subdominio
-    state.steps = state.steps.filter((s) => s !== "nginx_conf" && s !== "certbot");
+    // Forzar re-emisión del certificado SSL para incluir el nuevo subdominio
+    state.steps = state.steps.filter((s) => s !== "certbot");
     saveState(state);
   }
 
@@ -288,24 +288,16 @@ async function main() {
   const DOMAIN = envVariables["DOMAIN"];
   const TOKEN = envVariables["TOKEN"];
 
-  // — Paso nginx_conf --------------------------------------------------------
-  if (pending("nginx_conf")) {
-    console.log(`\n[1/5] Generando nginx.conf para dominio: ${DOMAIN}...`);
-    const nginxDir = path.resolve(process.cwd(), "nginx");
-    fs.mkdirSync(nginxDir, { recursive: true });
-    const nginxConf = generateNginxConf(config, DOMAIN);
-    fs.writeFileSync(path.join(nginxDir, "nginx.conf"), nginxConf);
-
-    const autheliaDir = path.resolve(process.cwd(), "authelia");
-    fs.mkdirSync(autheliaDir, { recursive: true });
-    const autheliaConf = generateAutheliaConf(config, DOMAIN);
-    fs.writeFileSync(path.join(autheliaDir, "configuration.yml"), autheliaConf);
-
-    console.log(
-      `✅ nginx.conf y authelia/configuration.yml generados con ${config.services.length} servicio(s) + auth.`,
-    );
-    markDone(state, "nginx_conf");
-  }
+  // — Generación de configs (siempre, no como paso) --------------------------
+  // Se regeneran en cada ejecución: son instantáneas y deben reflejar config.yml actual.
+  console.log(`\n[1/5] Generando nginx.conf y authelia/configuration.yml para: ${DOMAIN}...`);
+  const nginxDir = path.resolve(process.cwd(), "nginx");
+  fs.mkdirSync(nginxDir, { recursive: true });
+  fs.writeFileSync(path.join(nginxDir, "nginx.conf"), generateNginxConf(config, DOMAIN));
+  const autheliaDir = path.resolve(process.cwd(), "authelia");
+  fs.mkdirSync(autheliaDir, { recursive: true });
+  fs.writeFileSync(path.join(autheliaDir, "configuration.yml"), generateAutheliaConf(config, DOMAIN));
+  console.log(`✅ Configs generadas con ${config.services.length} servicio(s) + auth.`);
 
   // — Paso duckdns -----------------------------------------------------------
   if (pending("duckdns")) {
