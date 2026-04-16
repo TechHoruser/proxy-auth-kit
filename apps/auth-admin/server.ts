@@ -165,19 +165,11 @@ function reloadAutheliaRules(): void {
   }).unref();
 }
 
-async function restartAutheliaAndWait(): Promise<void> {
-  // Reinicia Authelia y espera a que esté lista antes de continuar.
-  // Las sesiones sobreviven porque están en SQLite (volume persistido).
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn('docker', ['compose', 'restart', 'authelia'], {
-      cwd: PROJECT_ROOT,
-      stdio: 'ignore',
-    });
-    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`exit ${code}`))));
-    child.on('error', reject);
-  });
-  // Pausa para que el servidor HTTP de Authelia esté listo
-  await new Promise((r) => setTimeout(r, 2000));
+async function reloadUsersAndWait(): Promise<void> {
+  // SIGUSR1 dispara recarga de users_database.yml (watch: true lo hace también por inotify).
+  // No reinicia el contenedor → las sesiones activas no se interrumpen.
+  reloadAutheliaRules();
+  await new Promise((r) => setTimeout(r, 1500));
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +242,7 @@ app.post(
       groups: Array.isArray(groups) ? groups : [],
     };
     writeDb(db);
-    await restartAutheliaAndWait();
+    await reloadUsersAndWait();
     res.status(201).json({ username });
   }),
 );
@@ -271,7 +263,7 @@ app.put('/api/users/:username', wrap(async (req, res) => {
   if (email !== undefined) db.users[username].email = email;
   if (groups !== undefined) db.users[username].groups = Array.isArray(groups) ? groups : [];
   writeDb(db);
-  await restartAutheliaAndWait();
+  await reloadUsersAndWait();
   res.json({ username });
 }));
 
@@ -297,7 +289,7 @@ app.put(
     });
     db.users[username].password = hash;
     writeDb(db);
-    await restartAutheliaAndWait();
+    await reloadUsersAndWait();
     res.json({ username });
   }),
 );
@@ -311,7 +303,7 @@ app.delete('/api/users/:username', wrap(async (req, res) => {
   }
   delete db.users[username];
   writeDb(db);
-  await restartAutheliaAndWait();
+  await reloadUsersAndWait();
   res.json({ username });
 }));
 
