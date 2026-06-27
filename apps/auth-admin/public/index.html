@@ -571,9 +571,12 @@
     <div class="logo-icon">🔐</div>
     Auth Admin
   </div>
-  <div class="user-badge" id="userBadge">
-    <div class="avatar" id="userAvatar">?</div>
-    <span id="userLabel">cargando…</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="user-badge" id="userBadge">
+      <div class="avatar" id="userAvatar">?</div>
+      <span id="userLabel">cargando…</span>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="btnLogout" style="display:none">Cerrar sesión</button>
   </div>
 </header>
 
@@ -828,6 +831,12 @@
       const username = me.username ?? 'dev';
       document.getElementById('userLabel').textContent = me.displayname || username;
       document.getElementById('userAvatar').textContent = (username[0] ?? '?').toUpperCase();
+
+      const logoutBtn = document.getElementById('btnLogout');
+      if (me.logout_url) {
+        logoutBtn.style.display = '';
+        logoutBtn.onclick = () => { window.location.href = me.logout_url; };
+      }
     } catch {}
   }
 

@@ -133,12 +133,15 @@ const wrap =
 // ---------------------------------------------------------------------------
 
 app.get('/api/me', (req, res) => {
+  const domain = getDomain();
   res.json({
     username: req.headers['remote-user'] ?? null,
     displayname: req.headers['remote-name'] ?? null,
     groups: String(req.headers['remote-groups'] ?? '')
       .split(',')
       .filter(Boolean),
+    // Authelia cierra la sesión en /logout del portal de autenticación.
+    logout_url: domain ? `https://auth.${domain}/logout` : null,
   });
 });
 

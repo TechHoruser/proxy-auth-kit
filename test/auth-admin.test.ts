@@ -74,6 +74,12 @@ after(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
+test("GET /api/me incluye logout_url del portal de Authelia", async () => {
+  const { status, data } = await api("GET", "/api/me");
+  assert.equal(status, 200);
+  assert.equal(data.logout_url, "https://auth.example.duckdns.org/logout");
+});
+
 test("GET /api/users devuelve el admin sembrado (sin exponer el hash)", async () => {
   const { status, data } = await api("GET", "/api/users");
   assert.equal(status, 200);
