@@ -571,9 +571,12 @@
     <div class="logo-icon">🔐</div>
     Auth Admin
   </div>
-  <div class="user-badge" id="userBadge">
-    <div class="avatar" id="userAvatar">?</div>
-    <span id="userLabel">cargando…</span>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="user-badge" id="userBadge">
+      <div class="avatar" id="userAvatar">?</div>
+      <span id="userLabel">cargando…</span>
+    </div>
+    <button class="btn btn-ghost btn-sm" id="btnLogout" style="display:none">Cerrar sesión</button>
   </div>
 </header>
 
@@ -760,6 +763,17 @@
   </div>
 </div>
 
+<!-- Overlay de reinicio de Authelia -->
+<div class="overlay" id="restartOverlay">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-body" style="padding:32px 24px;text-align:center">
+      <div class="spinner" style="width:28px;height:28px;border-width:3px;border-top-color:var(--accent-hover);margin:0 auto 16px"></div>
+      <div style="font-weight:600;margin-bottom:6px">Reiniciando Authelia…</div>
+      <div style="color:var(--text-muted);font-size:13px">Se cerrará la sesión. La página se recargará automáticamente.</div>
+    </div>
+  </div>
+</div>
+
 <div id="toasts"></div>
 
 <script>
@@ -780,6 +794,40 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
     return data;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reinicio de Authelia → recargar (lleva al login porque la sesión se invalida)
+  // ---------------------------------------------------------------------------
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Sondea el estado a través del proxy. "Caída" = Authelia reiniciándose
+  // (nginx devuelve 5xx); "arriba" = ya responde (200 logueado, o redirección
+  // a login que en cross-origin llega como status 0/opaque).
+  async function probeUp() {
+    try {
+      const res = await fetch('/api/me', { redirect: 'manual', cache: 'no-store' });
+      const downCodes = [500, 502, 503, 504];
+      return !downCodes.includes(res.status);
+    } catch {
+      return false; // error de red → tratar como caída
+    }
+  }
+
+  async function reloadAfterAutheliaRestart() {
+    document.getElementById('restartOverlay').classList.add('open');
+    // 1) Esperar a que Authelia caiga por el restart (máx 12s).
+    for (let t = 0; t < 12000; t += 1000) {
+      if (!(await probeUp())) break;
+      await sleep(1000);
+    }
+    // 2) Esperar a que vuelva a estar disponible (máx 45s).
+    for (let t = 0; t < 45000; t += 1000) {
+      if (await probeUp()) break;
+      await sleep(1000);
+    }
+    // Con la sesión ya invalidada, recargar redirige al login de Authelia.
+    window.location.reload();
   }
 
   // ---------------------------------------------------------------------------
@@ -828,6 +876,12 @@
       const username = me.username ?? 'dev';
       document.getElementById('userLabel').textContent = me.displayname || username;
       document.getElementById('userAvatar').textContent = (username[0] ?? '?').toUpperCase();
+
+      const logoutBtn = document.getElementById('btnLogout');
+      if (me.logout_url) {
+        logoutBtn.style.display = '';
+        logoutBtn.onclick = () => { window.location.href = me.logout_url; };
+      }
     } catch {}
   }
 
@@ -1046,7 +1100,7 @@
         toast(`Usuario '${username}' creado`, 'success');
       }
       closeModal('modalUser');
-      await loadAll();
+      reloadAfterAutheliaRestart();
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -1079,6 +1133,7 @@
       await api('PUT', `/api/users/${username}/password`, { password });
       toast(`Contraseña de '${username}' actualizada`, 'success');
       closeModal('modalPassword');
+      reloadAfterAutheliaRestart();
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -1105,7 +1160,7 @@
       await api('DELETE', `/api/users/${username}`);
       toast(`Usuario '${username}' eliminado`, 'success');
       closeModal('modalDelete');
-      await loadAll();
+      reloadAfterAutheliaRestart();
     } catch (e) {
       toast(e.message, 'error');
     } finally {
@@ -1206,7 +1261,7 @@
       await api('PUT', `/api/services/${subdomain}/groups`, { groups });
       toast(`Grupos de '${subdomain}' actualizados`, 'success');
       closeModal('modalServiceGroups');
-      await loadServices();
+      reloadAfterAutheliaRestart();
     } catch (e) {
       toast(e.message, 'error');
     } finally {

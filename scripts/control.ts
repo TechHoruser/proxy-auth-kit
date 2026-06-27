@@ -227,11 +227,11 @@ const printOtpData = (username: string, secret: string) => {
 // Authelia helpers
 // ---------------------------------------------------------------------------
 
+// Reinicia Authelia para aplicar cambios. Se invoca al final de cada operación de
+// edición (usuarios y reglas de acceso) para que surtan efecto de forma determinista.
 const restartAuthelia = () => {
-  // users_database.yml: watch:true lo recarga automáticamente
-  // configuration.yml: necesita SIGUSR1
-  console.log("ℹ️  Recargando configuración de Authelia...");
-  runCommand("docker compose kill --signal=SIGUSR1 authelia");
+  console.log("ℹ️  Reiniciando Authelia para aplicar los cambios...");
+  runCommand("docker compose restart authelia");
 };
 
 const generateAutheliaPasswordHash = (password: string): string | null => {
