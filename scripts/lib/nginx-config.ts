@@ -11,7 +11,7 @@ export interface ServiceConfig {
 }
 
 export interface Config {
-  authelia: { totp_issuer: string; default_redirect: string };
+  authelia: { totp_issuer: string; default_redirect?: string };
   services: ServiceConfig[];
 }
 
@@ -143,7 +143,8 @@ export const generateNginxConf = (config: Config, domain: string): string => {
     .map((svc) => generateServiceBlock(svc, domain))
     .join("\n");
 
-  const defaultRedirect = config.authelia.default_redirect;
+  // Si no se define default_redirect, el dominio raíz va al portal de Authelia.
+  const defaultRedirect = config.authelia.default_redirect || "auth";
 
   return `worker_processes auto;
 

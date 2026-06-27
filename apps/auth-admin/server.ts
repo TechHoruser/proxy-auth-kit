@@ -1,10 +1,12 @@
 import express, { Request, Response, NextFunction } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { spawn } from 'child_process';
 import yaml from 'js-yaml';
 import argon2 from 'argon2';
+import { generateAutheliaConf } from '../../scripts/lib/authelia-config.js';
+import type { Config } from '../../scripts/lib/nginx-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,82 +96,27 @@ function getDomain(): string {
 }
 
 function applyAutheliaConfig(config: AppConfig, domain: string): void {
-  const rules: string[] = [];
-  for (const svc of config.services) {
-    if (!svc.protected) continue;
-    const svcDomain = `${svc.subdomain}.${domain}`;
-    if (svc.groups && svc.groups.length > 0) {
-      const subjects = svc.groups.map((g) => `        - 'group:${g}'`).join('\n');
-      rules.push(`    - domain: '${svcDomain}'\n      subject:\n${subjects}\n      policy: one_factor`);
-    } else {
-      rules.push(`    - domain: '${svcDomain}'\n      policy: one_factor`);
-    }
-  }
-  const rulesBlock = rules.join('\n');
-
-  fs.writeFileSync(
-    AUTHELIA_CONF_PATH,
-    `###############################################################
-#                   Authelia Configuration                    #
-# Generado automáticamente por proxy-auth-kit.               #
-# No editar manualmente — usar: npm run control              #
-###############################################################
-
-theme: dark
-
-server:
-  address: "tcp://0.0.0.0:9091/"
-
-log:
-  level: info
-
-authentication_backend:
-  file:
-    path: /config/users_database.yml
-    watch: true
-
-access_control:
-  default_policy: deny${rulesBlock ? `\n  rules:\n${rulesBlock}` : ''}
-
-session:
-  cookies:
-    - name: authelia_session
-      domain: '${domain}'
-      authelia_url: 'https://auth.${domain}/'
-      expiration: 3600
-      inactivity: 300
-
-regulation:
-  max_retries: 3
-  find_time: 120
-  ban_time: 300
-
-storage:
-  local:
-    path: /data/db.sqlite3
-
-notifier:
-  filesystem:
-    filename: /data/notifications.txt
-`,
-  );
+  // Reutiliza el generador compartido (misma salida que `npm run setup` / `npm run control`).
+  fs.writeFileSync(AUTHELIA_CONF_PATH, generateAutheliaConf(config as Config, domain));
 }
 
-function reloadAutheliaRules(): void {
-  // SIGUSR1: recarga reglas de acceso sin reiniciar (sesiones preservadas)
-  // NO recarga users_database.yml — para eso se necesita reinicio completo
-  spawn('docker', ['compose', 'kill', '--signal=SIGUSR1', 'authelia'], {
+function dockerCompose(args: string[]): void {
+  // Permite desactivar la interacción con docker en entornos de prueba.
+  if (process.env.AUTH_ADMIN_DISABLE_RELOAD === '1') return;
+  const child = spawn('docker', ['compose', ...args], {
     cwd: PROJECT_ROOT,
     stdio: 'ignore',
     detached: true,
-  }).unref();
+  });
+  // Si docker no está disponible, no debe tumbar el panel.
+  child.on('error', () => {});
+  child.unref();
 }
 
-async function reloadUsersAndWait(): Promise<void> {
-  // SIGUSR1 dispara recarga de users_database.yml (watch: true lo hace también por inotify).
-  // No reinicia el contenedor → las sesiones activas no se interrumpen.
-  reloadAutheliaRules();
-  await new Promise((r) => setTimeout(r, 1500));
+// configuration.yml (reglas de acceso) NO se recarga en caliente → requiere reinicio.
+// users_database.yml SÍ se recarga solo gracias a watch: true (no hace falta tocar el contenedor).
+function restartAuthelia(): void {
+  dockerCompose(['restart', 'authelia']);
 }
 
 // ---------------------------------------------------------------------------
@@ -242,7 +189,6 @@ app.post(
       groups: Array.isArray(groups) ? groups : [],
     };
     writeDb(db);
-    await reloadUsersAndWait();
     res.status(201).json({ username });
   }),
 );
@@ -263,7 +209,6 @@ app.put('/api/users/:username', wrap(async (req, res) => {
   if (email !== undefined) db.users[username].email = email;
   if (groups !== undefined) db.users[username].groups = Array.isArray(groups) ? groups : [];
   writeDb(db);
-  await reloadUsersAndWait();
   res.json({ username });
 }));
 
@@ -289,7 +234,6 @@ app.put(
     });
     db.users[username].password = hash;
     writeDb(db);
-    await reloadUsersAndWait();
     res.json({ username });
   }),
 );
@@ -303,7 +247,6 @@ app.delete('/api/users/:username', wrap(async (req, res) => {
   }
   delete db.users[username];
   writeDb(db);
-  await reloadUsersAndWait();
   res.json({ username });
 }));
 
@@ -358,7 +301,7 @@ app.put('/api/services/:subdomain/groups', (req, res) => {
     writeConfig(config);
     const domain = getDomain();
     if (domain) applyAutheliaConfig(config, domain);
-    reloadAuthelia();
+    restartAuthelia();
     res.json({ subdomain });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
@@ -374,7 +317,14 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: err.message });
 });
 
-app.listen(PORT, () => {
-  console.log(`auth-admin escuchando en http://localhost:${PORT}`);
-  console.log(`Users DB: ${USERS_DB_PATH}`);
-});
+// Arranca el servidor solo cuando se ejecuta directamente (no al importarlo en tests).
+const isMain =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  app.listen(PORT, () => {
+    console.log(`auth-admin escuchando en http://localhost:${PORT}`);
+    console.log(`Users DB: ${USERS_DB_PATH}`);
+  });
+}
+
+export { app };

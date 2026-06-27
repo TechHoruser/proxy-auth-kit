@@ -90,7 +90,6 @@ cp .env.example .env
 | `AUTHELIA_SESSION_SECRET` | Secreto de sesión — se genera automáticamente | — |
 | `AUTHELIA_STORAGE_ENCRYPTION_KEY` | Clave de cifrado de BD — se genera automáticamente | — |
 | `AUTHELIA_TOTP_ISSUER` | Lo sobreescribe el script desde `config.yml` | — |
-| `AUTHELIA_DEFAULT_REDIRECTION_URL` | Lo sobreescribe el script desde `config.yml` | — |
 
 `DOMAIN` y `TOKEN` son las únicas variables que tienes que rellenar a mano. El resto se genera o se escribe automáticamente.
 
@@ -258,6 +257,20 @@ proxy-auth-kit/
     ├── control.ts               # Panel de gestión interactivo
     └── start.sh                 # Bootstrap de servidor nuevo (instala Node, Docker, etc.)
 ```
+
+---
+
+## Tests
+
+```bash
+npm install
+npm test
+```
+
+Cubren la generación de configuración de Nginx y Authelia (YAML válido, reglas
+de acceso por servicio/grupo, fallback de `default_redirect`) y toda la API REST
+del panel `auth-admin` (alta/edición/borrado de usuarios, grupos y reglas de
+acceso por servicio). No requieren Docker.
 
 ---
 

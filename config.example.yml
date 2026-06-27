@@ -4,6 +4,7 @@
 
 authelia:
   totp_issuer: "MiProyecto"         # Nombre que aparece en la app de autenticación (2FA)
+  default_redirect: "auth"          # Subdominio al que redirige el dominio raíz (por defecto: el portal "auth")
 
 # Mapeos subdominio → puerto del host.
 # El subdominio "auth" está reservado y se genera automáticamente para el portal Authelia.
