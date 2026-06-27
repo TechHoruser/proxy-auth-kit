@@ -8,7 +8,7 @@
 users:
   admin:
     displayname: "Admin"
-    password: "$argon2id$v=19$m=65536,t=3,p=4$ZwShPpuuFbQGMH2HZAT9mw$Kf4c8yEWMx5nPQC1IFBnf26NLVCpV/ik8apFjVpW13w"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$47u1WRgVE2+pqeY6P8UtwA$bJLxHCE2OicwWlm4lI3WjJrHFK+B4fIJMUFT8YcRUJw"
     email: admin@localhost.com
     groups:
       - admins
