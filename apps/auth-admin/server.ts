@@ -113,8 +113,8 @@ function dockerCompose(args: string[]): void {
   child.unref();
 }
 
-// configuration.yml (reglas de acceso) NO se recarga en caliente → requiere reinicio.
-// users_database.yml SÍ se recarga solo gracias a watch: true (no hace falta tocar el contenedor).
+// Reinicia Authelia para aplicar cambios. Se invoca al final de cada operación de
+// edición (usuarios y reglas de acceso) para que surtan efecto de forma determinista.
 function restartAuthelia(): void {
   dockerCompose(['restart', 'authelia']);
 }
@@ -189,6 +189,7 @@ app.post(
       groups: Array.isArray(groups) ? groups : [],
     };
     writeDb(db);
+    restartAuthelia();
     res.status(201).json({ username });
   }),
 );
@@ -209,6 +210,7 @@ app.put('/api/users/:username', wrap(async (req, res) => {
   if (email !== undefined) db.users[username].email = email;
   if (groups !== undefined) db.users[username].groups = Array.isArray(groups) ? groups : [];
   writeDb(db);
+  restartAuthelia();
   res.json({ username });
 }));
 
@@ -234,6 +236,7 @@ app.put(
     });
     db.users[username].password = hash;
     writeDb(db);
+    restartAuthelia();
     res.json({ username });
   }),
 );
@@ -247,6 +250,7 @@ app.delete('/api/users/:username', wrap(async (req, res) => {
   }
   delete db.users[username];
   writeDb(db);
+  restartAuthelia();
   res.json({ username });
 }));
 
@@ -306,6 +310,17 @@ app.put('/api/services/:subdomain/groups', (req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Reinicio manual de Authelia
+// ---------------------------------------------------------------------------
+
+// Reinicia Authelia bajo demanda: GET para poder lanzarlo desde el navegador,
+// POST para integraciones. Protegido por Authelia (grupo admins) vía el proxy.
+app.all('/restart', (_req, res) => {
+  restartAuthelia();
+  res.json({ ok: true, message: 'Reiniciando Authelia (docker compose restart authelia)...' });
 });
 
 // ---------------------------------------------------------------------------

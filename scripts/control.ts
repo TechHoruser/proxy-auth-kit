@@ -227,15 +227,11 @@ const printOtpData = (username: string, secret: string) => {
 // Authelia helpers
 // ---------------------------------------------------------------------------
 
-// configuration.yml (reglas de acceso) NO se recarga en caliente → requiere reinicio.
+// Reinicia Authelia para aplicar cambios. Se invoca al final de cada operación de
+// edición (usuarios y reglas de acceso) para que surtan efecto de forma determinista.
 const restartAuthelia = () => {
-  console.log("ℹ️  Reiniciando Authelia para aplicar la configuración...");
+  console.log("ℹ️  Reiniciando Authelia para aplicar los cambios...");
   runCommand("docker compose restart authelia");
-};
-
-// users_database.yml SÍ se recarga en caliente gracias a watch:true → no hace falta reiniciar.
-const noteUsersWatchReload = () => {
-  console.log("ℹ️  Authelia recargará los usuarios automáticamente (watch: true).");
 };
 
 const generateAutheliaPasswordHash = (password: string): string | null => {
@@ -320,7 +316,7 @@ async function addUser() {
 `;
   writeUsersYaml(`${usersYaml.trimEnd()}${userEntry}`);
   console.log(`✅ Usuario '${username}' añadido.`);
-  noteUsersWatchReload();
+  restartAuthelia();
 }
 
 async function updateUserPassword() {
@@ -371,7 +367,7 @@ async function updateUserPassword() {
 
   writeUsersYaml(nextLines.join("\n"));
   console.log(`✅ Contraseña actualizada para '${username}'.`);
-  noteUsersWatchReload();
+  restartAuthelia();
 }
 
 async function deleteUser() {
@@ -408,7 +404,7 @@ async function deleteUser() {
 
   writeUsersYaml(nextLines.join("\n"));
   console.log(`✅ Usuario '${username}' eliminado.`);
-  noteUsersWatchReload();
+  restartAuthelia();
 }
 
 function showLatestNotificationCodeFromContainer() {
@@ -486,7 +482,7 @@ async function manageUserGroups(): Promise<void> {
   console.log(
     `✅ Grupos de '${username}' actualizados: ${newGroups.length > 0 ? newGroups.join(", ") : "(ninguno)"}`,
   );
-  noteUsersWatchReload();
+  restartAuthelia();
 }
 
 async function manageUsers() {

@@ -187,3 +187,15 @@ test("DELETE /api/users/:u inexistente devuelve 404", async () => {
   const { status } = await api("DELETE", "/api/users/nope");
   assert.equal(status, 404);
 });
+
+test("GET /restart responde ok y dispara el reinicio de Authelia", async () => {
+  const { status, data } = await api("GET", "/restart");
+  assert.equal(status, 200);
+  assert.equal(data.ok, true);
+});
+
+test("POST /restart también está soportado", async () => {
+  const { status, data } = await api("POST", "/restart");
+  assert.equal(status, 200);
+  assert.equal(data.ok, true);
+});
