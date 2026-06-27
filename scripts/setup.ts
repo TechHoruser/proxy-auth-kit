@@ -225,6 +225,21 @@ async function main() {
   const rawConfig = yaml.load(fs.readFileSync(configPath, "utf8")) as Config;
   const config: Config = { ...rawConfig, services: rawConfig.services ?? [] };
 
+  // 1b. Crear authelia/users_database.yml desde la plantilla si no existe.
+  // El archivo real no se versiona (se modifica en runtime), así que un clon nuevo no lo trae.
+  const usersDbPath = path.resolve(process.cwd(), "authelia", "users_database.yml");
+  if (!fs.existsSync(usersDbPath)) {
+    const usersExamplePath = path.resolve(process.cwd(), "authelia", "users_database.example.yml");
+    if (fs.existsSync(usersExamplePath)) {
+      fs.mkdirSync(path.dirname(usersDbPath), { recursive: true });
+      fs.copyFileSync(usersExamplePath, usersDbPath);
+      console.log("ℹ️  users_database.yml creado desde la plantilla (usuario por defecto: admin / authelia).");
+    } else {
+      console.error("❌ No se encontró authelia/users_database.example.yml.");
+      process.exit(1);
+    }
+  }
+
   // Garantizar que auth-admin esté siempre en la configuración
   const authAdminAdded = ensureAuthAdminInConfig(config, configPath);
   if (authAdminAdded) {

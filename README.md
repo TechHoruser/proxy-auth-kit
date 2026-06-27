@@ -247,8 +247,9 @@ proxy-auth-kit/
 ├── .env.example                 # Plantilla de variables de entorno
 ├── docker-compose.yml           # Nginx + Authelia
 ├── authelia/
-│   ├── configuration.yml        # Config de Authelia (no modificar normalmente)
-│   └── users_database.yml       # Usuarios y contraseñas (hashes Argon2)
+│   ├── configuration.yml         # Generado por setup.ts a partir de config.yml (gitignoreado)
+│   ├── users_database.example.yml # Plantilla del usuario por defecto (admin / authelia)
+│   └── users_database.yml         # Usuarios reales (hashes Argon2). Creado desde la plantilla; gitignoreado
 ├── nginx/
 │   └── nginx.conf               # Generado automáticamente por setup.ts (gitignoreado)
 ├── data/                        # Base de datos Authelia en runtime (gitignoreado)

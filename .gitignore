@@ -8,6 +8,10 @@ config.yml
 # Datos en runtime (base de datos sqlite de Authelia, notificaciones)
 data/
 
+# Base de datos de usuarios — se modifica en runtime (panel / npm run control).
+# Se crea desde authelia/users_database.example.yml en el primer setup.
+authelia/users_database.yml
+
 # Certificados SSL generados por Certbot
 nginx/certs/
 nginx/certbot-data/

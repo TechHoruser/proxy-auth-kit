@@ -15,8 +15,9 @@ const requireFromAuthAdmin = createRequire(
 const argon2 = requireFromAuthAdmin("argon2");
 
 test("el hash por defecto de admin corresponde a la contraseña 'authelia'", async () => {
+  // El archivo real no se versiona; la plantilla es la fuente del usuario por defecto.
   const db = yaml.load(
-    fs.readFileSync(path.join(repoRoot, "authelia", "users_database.yml"), "utf8"),
+    fs.readFileSync(path.join(repoRoot, "authelia", "users_database.example.yml"), "utf8"),
   ) as { users: Record<string, { password: string }> };
 
   const admin = db.users?.admin;

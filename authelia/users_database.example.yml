@@ -1,7 +1,10 @@
 ###############################################################
-#                     Users Database                          #
+#                     Users Database (plantilla)              #
 ###############################################################
-# Este archivo se gestiona con: npm run control
+# El setup copia este archivo a authelia/users_database.yml si no existe.
+# El archivo real NO se versiona (se gestiona en runtime con: npm run control o el panel auth-admin).
+#
+# Usuario por defecto: admin / authelia  (cámbialo antes de exponer el servidor).
 # Para generar un hash de contraseña manualmente:
 #   docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'tucontraseña'
 
